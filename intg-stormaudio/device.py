@@ -90,7 +90,11 @@ class StormAudioDevice(PersistentConnectionDevice):
 
     async def establish_connection(self) -> Any:
         """Establish connection to device."""
-        return await self._client.connect()
+        connection = await self._client.connect()
+        # Emit initial attributes after connection to ensure source_list is available
+        # when entity becomes configured
+        self._update_attributes()
+        return connection
 
     async def close_connection(self) -> None:
         """Close the connection."""
@@ -132,18 +136,20 @@ class StormAudioDevice(PersistentConnectionDevice):
                     self._update_attributes()
 
                 case StormAudioResponses.INPUT_LIST_START:
+                    _LOG.debug("[%s] Input list starting, clearing existing list", self.log_id)
                     self._source_list.clear()
 
                 case message if message.startswith(StormAudioResponses.INPUT_LIST_X):
                     input_name, input_id, *_tail = json.loads(
                         message[len(StormAudioResponses.INPUT_LIST_X) :]  # noqa: E203
                     )
-
+                    _LOG.debug("[%s] Adding input: %s (ID: %s)", self.log_id, input_name, input_id)
                     self._source_list.update({input_name: input_id})
 
                 case StormAudioResponses.INPUT_LIST_END:
-                    self.update_config(input_list=self._source_list)
+                    _LOG.debug("[%s] Input list complete: %s", self.log_id, self._source_list)
                     self._update_attributes()
+                    self.update_config(input_list=self._source_list)
 
         await self._client.parse_response_messages(self._connection, message_handler)
 
@@ -162,6 +168,14 @@ class StormAudioDevice(PersistentConnectionDevice):
 
     def _update_attributes(self) -> None:
         """Update the device attributes via an event."""
+        _LOG.debug(
+            "[%s] Updating attributes - State: %s, Sources: %s, Modes: %s, Volume: %s",
+            self.log_id,
+            self._state,
+            list(self.source_list.keys()),
+            list(self.sound_mode_list.keys()),
+            self.volume,
+        )
         self.events.emit(
             DeviceEvents.UPDATE,
             self.entity_id,
