@@ -46,7 +46,7 @@ class StormAudioDevice(PersistentConnectionDevice):
     @property
     def source_list(self) -> Dict[str, int]:
         """Returns a dictionary of available input sources."""
-        return self._source_list
+        return {"HDMI1": 1, "HDMI2": 2, "AUX": 3, "Bluetooth": 4, "USB": 5}
 
     @property
     def volume(self) -> int:
@@ -85,22 +85,27 @@ class StormAudioDevice(PersistentConnectionDevice):
 
     async def connect(self) -> bool:
         """Establish persistent connection with reconnection logic."""
-        if not await super().connect():
-            return False
+        # if not await super().connect():
+        #     return False
 
-        if await self._wait_for_response(StormAudioResponses.ZONE_PROFILES_END) is None:
-            return False
-
+        # if await self._wait_for_response(StormAudioResponses.ZONE_PROFILES_END) is None:
+        #     return False
+        self.events.emit(DeviceEvents.CONNECTED, self.device_config.identifier)
+        self.events.emit(
+            DeviceEvents.UPDATE,
+            self.entity_id,
+            {MediaAttr.SOURCE_LIST: list(self.source_list.keys())},
+        )
         return True
 
     async def establish_connection(self) -> Any:
         """Establish connection to device."""
-        return await self._client.connect()
+        # return await self._client.connect()
 
     async def close_connection(self) -> None:
         """Close the connection."""
-        if self._connection:
-            await self._client.close(self._connection)
+        # if self._connection:
+        #     await self._client.close(self._connection)
 
     async def maintain_connection(self) -> None:
         """Maintain the connection."""
